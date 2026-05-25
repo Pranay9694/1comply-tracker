@@ -386,7 +386,12 @@ async function loadTasks(){
   document.getElementById("board").innerHTML=`<div class="loading-state"><div class="spinner"></div><span>Loading tasks…</span></div>`;
   try{
     const data=await api("GET");
-    tasks=(data||[]).map(t=>({...t,ID:String(t.ID),Tags:t.Tags||""}));
+    tasks=(data||[]).map(t=>({
+      ...t,
+      ID:String(t.ID),
+      Tags:t.Tags||"",
+      "Due Date":t["Due Date"]?String(t["Due Date"]).split("T")[0].split(" ")[0]:"",
+    }));
     renderAll();checkOverdue();
   }catch(e){
     document.getElementById("board").innerHTML=`<div class="loading-state" style="color:#f87171">Could not connect. Check your Script URL.</div>`;
@@ -548,17 +553,21 @@ function showCtx(e,id){
   m.style.top=Math.min(e.clientY,window.innerHeight-220)+"px";
   m.classList.add("open");
 }
-function closeCtx(){document.getElementById("ctx-menu").classList.remove("open");ctxId=null}
+function closeCtx(){document.getElementById("ctx-menu").classList.remove("open")}
+function clearCtx(){ctxId=null}
 async function ctxStatus(s){
-  if(!ctxId)return;closeCtx();
-  const t=tasks.find(x=>x.ID===ctxId);
+  if(!ctxId)return;
+  const id=ctxId;closeCtx();clearCtx();
+  const t=tasks.find(x=>x.ID===id);
   if(t&&t.Status!==s){const old=t.Status;t.Status=s;logActivity(t.ID,`Status → <strong>${s}</strong> via right-click`);renderAll();checkOverdue();await api("POST",{action:"update",task:t});showToast(`Moved to ${s}`)}
 }
-function ctxStar(){if(!ctxId)return;const e={stopPropagation:()=>{}};toggleStar(e,ctxId);closeCtx()}
-function ctxEdit(){if(!ctxId)return;const id=ctxId;closeCtx();openModal(id)}
+function ctxStar(){if(!ctxId)return;const id=ctxId;closeCtx();clearCtx();const e={stopPropagation:()=>{}};toggleStar(e,id)}
+function ctxEdit(){if(!ctxId)return;const id=ctxId;closeCtx();clearCtx();openModal(id)}
 async function ctxDelete(){
-  if(!ctxId||!confirm("Delete this task?"))return;
-  const id=ctxId;closeCtx();tasks=tasks.filter(t=>t.ID!==id);renderAll();checkOverdue();
+  if(!ctxId)return;
+  const id=ctxId;closeCtx();clearCtx();
+  if(!confirm("Delete this task?"))return;
+  tasks=tasks.filter(t=>t.ID!==id);renderAll();checkOverdue();
   await api("POST",{action:"delete",id});showToast("Task deleted","🗑");
 }
 
@@ -676,7 +685,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="n"||e.key==="N"){if(document.activeElement.tagName==="INPUT"||document.activeElement.tagName==="TEXTAREA")return;openModal()}
   if(e.key==="Escape"){closeModal();closeCtx()}
 });
-document.addEventListener("click",()=>closeCtx());
+document.addEventListener("click",e=>{if(!e.target.closest("#ctx-menu"))closeCtx()});
 ["filter-assignee","filter-priority","filter-tag","filter-status"].forEach(id=>document.getElementById(id).onchange=renderAll);
 document.getElementById("filter-search").oninput=renderAll;
 document.getElementById("modal-bg").onclick=e=>{if(e.target===e.currentTarget)closeModal()};
