@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1-Comply Task Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --surface2: #f0f1f3;
+    --border: #e0e0e0; --text: #1a1a1a; --muted: #6b7280;
+    --blue: #1E3A5F; --blue-light: #E6F1FB; --blue-text: #185FA5;
+    --red-bg: #FCEBEB; --red-text: #A32D2D;
+    --amber-bg: #FAEEDA; --amber-text: #854F0B;
+    --green-bg: #EAF3DE; --green-text: #3B6D11;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* ── Layout ── */
+  .app { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .top-bar h1 { font-size: 20px; font-weight: 600; color: var(--blue); }
+  #config-btn { font-size: 12px; padding: 5px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+
+  /* ── Config banner ── */
+  #config-banner { background: var(--amber-bg); border: 1px solid #FAC775; border-radius: var(--radius); padding: 14px 18px; margin-bottom: 1.25rem; font-size: 13px; color: var(--amber-text); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #config-banner input { flex: 1; min-width: 260px; font-size: 13px; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid #FAC775; background: #fff; color: var(--text); }
+  #config-banner button { padding: 6px 14px; border-radius: var(--radius-sm); border: none; background: var(--blue); color: #fff; font-size: 13px; cursor: pointer; }
+
+  /* ── Dashboard ── */
+  .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: .85rem 1rem; }
+  .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .metric-value { font-size: 24px; font-weight: 600; color: var(--text); }
+  .metric-value.danger { color: var(--red-text); }
+
+  /* ── Toolbar ── */
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .toolbar select, .toolbar input[type=text] { font-size: 13px; padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); height: 34px; }
+  #btn-add { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 7px 16px; border-radius: var(--radius-sm); border: none; background: var(--blue); color: #fff; cursor: pointer; font-weight: 500; height: 34px; }
+  #btn-add:hover { background: #162d4a; }
+
+  /* ── Board ── */
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .column { background: var(--surface2); border-radius: var(--radius); padding: 12px; min-height: 320px; border: 2px dashed transparent; transition: border-color .15s; }
+  .column.drag-over { border-color: var(--blue); }
+  .col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .col-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .col-count { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; color: var(--muted); }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; cursor: pointer; transition: box-shadow .15s; }
+  .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .card.dragging { opacity: .4; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .card-name { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--text); }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+  .badge-High   { background: var(--red-bg);   color: var(--red-text); }
+  .badge-Medium { background: var(--amber-bg); color: var(--amber-text); }
+  .badge-Low    { background: var(--green-bg); color: var(--green-text); }
+  .card-meta { display: flex; align-items: center; justify-content: space-between; }
+  .avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+  .card-assignee { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .card-due { font-size: 11px; color: var(--muted); }
+  .card-due.overdue { color: var(--red-text); font-weight: 600; }
+
+  /* ── Modal ── */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius); padding: 1.5rem; width: 440px; max-width: 95vw; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+  .modal-header h3 { font-size: 16px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .form-group { margin-bottom: .85rem; }
+  .form-group label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; font-weight: 500; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; font-size: 13px; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; }
+  .form-group textarea { resize: vertical; min-height: 64px; }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; }
+  .btn-delete { font-size: 13px; padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--red-bg); color: var(--red-text); background: var(--red-bg); cursor: pointer; }
+  .btn-save { font-size: 13px; padding: 7px 20px; border-radius: var(--radius-sm); border: none; background: var(--blue); color: #fff; cursor: pointer; font-weight: 500; }
+  .btn-cancel { font-size: 13px; padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
+
+  /* ── Loading / empty ── */
+  .loading { text-align: center; padding: 2rem; color: var(--muted); font-size: 13px; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 700px) {
+    .board { grid-template-columns: 1fr; }
+    .dashboard { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top-bar">
+    <h1>1-Comply Task Tracker</h1>
+    <button id="config-btn" onclick="toggleConfig()">⚙ Script URL</button>
+  </div>
+
+  <div id="config-banner">
+    <span>Paste your Google Apps Script Web App URL:</span>
+    <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/…/exec">
+    <button onclick="saveScriptUrl()">Connect</button>
+  </div>
+
+  <div class="dashboard" id="dashboard"></div>
+
+  <div class="toolbar">
+    <select id="filter-assignee"><option value="">All assignees</option></select>
+    <select id="filter-priority"><option value="">All priorities</option><option>High</option><option>Medium</option><option>Low</option></select>
+    <input type="text" id="filter-search" placeholder="Search tasks…" style="width:180px">
+    <button id="btn-add" onclick="openModal()">+ Add task</button>
+  </div>
+
+  <div class="board" id="board"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">New task</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="form-group"><label>Task name</label><input id="f-name" type="text" placeholder="What needs to be done?"></div>
+    <div class="form-group"><label>Assignee</label><input id="f-assignee" type="text" placeholder="Full name"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Due date</label><input id="f-due" type="date"></div>
+      <div class="form-group"><label>Priority</label>
+        <select id="f-priority"><option>High</option><option selected>Medium</option><option>Low</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label>Status</label>
+      <select id="f-status"><option>To Do</option><option>In Progress</option><option>Done</option></select>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea id="f-notes" placeholder="Optional notes…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-delete" id="btn-delete" onclick="deleteTask()" style="visibility:hidden">Delete</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveTask()">Save task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS = ["To Do", "In Progress", "Done"];
+const AVATAR_COLORS = ["#B5D4F4","#FAC775","#9FE1CB","#F4C0D1","#C0DD97","#AFA9EC","#F0997B","#85B7EB"];
+const today = new Date().toISOString().split("T")[0];
+let tasks = [];
+let editId = null;
+let dragId = null;
+
+// ── Script URL ────────────────────────────────
+let SCRIPT_URL = localStorage.getItem("1comply_script_url") || "";
+
+function toggleConfig() {
+  const b = document.getElementById("config-banner");
+  b.style.display = b.style.display === "none" ? "flex" : "none";
+}
+function saveScriptUrl() {
+  const v = document.getElementById("script-url-input").value.trim();
+  if (!v) return alert("Please paste a valid URL.");
+  SCRIPT_URL = v;
+  localStorage.setItem("1comply_script_url", v);
+  document.getElementById("config-banner").style.display = "none";
+  loadTasks();
+}
+
+// ── API calls ─────────────────────────────────
+async function api(method, body) {
+  if (!SCRIPT_URL) return null;
+  const opts = { method, headers: { "Content-Type": "text/plain" } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(SCRIPT_URL, opts);
+  return res.json();
+}
+
+async function loadTasks() {
+  setBoard(`<div class="loading"><span class="spinner"></span>Loading tasks…</div>`);
+  try {
+    const data = await api("GET");
+    tasks = (data || []).map(t => ({
+      ID: String(t.ID),
+      "Task Name": t["Task Name"],
+      Assignee: t.Assignee,
+      "Due Date": t["Due Date"],
+      Priority: t.Priority,
+      Status: t.Status,
+      Notes: t.Notes,
+    }));
+    renderAll();
+  } catch(e) {
+    setBoard(`<div class="loading" style="color:#A32D2D">Could not connect. Check your Script URL.</div>`);
+  }
+}
+
+function setBoard(html) {
+  document.getElementById("board").innerHTML = html;
+}
+
+// ── Helpers ───────────────────────────────────
+function initials(n) { return (n||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2); }
+function avatarColor(n) { let h=0; for(let c of (n||"")) h=(h*31+c.charCodeAt(0))%AVATAR_COLORS.length; return AVATAR_COLORS[h]; }
+
+function getFiltered() {
+  const a = document.getElementById("filter-assignee").value;
+  const p = document.getElementById("filter-priority").value;
+  const s = document.getElementById("filter-search").value.toLowerCase();
+  return tasks.filter(t =>
+    (!a || t.Assignee === a) &&
+    (!p || t.Priority === p) &&
+    (!s || (t["Task Name"]||"").toLowerCase().includes(s) || (t.Assignee||"").toLowerCase().includes(s))
+  );
+}
+
+// ── Render ────────────────────────────────────
+function renderAll() {
+  renderDashboard();
+  renderAssigneeFilter();
+  renderBoard();
+}
+
+function renderDashboard() {
+  const total = tasks.length;
+  const done  = tasks.filter(t => t.Status === "Done").length;
+  const over  = tasks.filter(t => t["Due Date"] && t["Due Date"] < today && t.Status !== "Done").length;
+  const high  = tasks.filter(t => t.Priority === "High" && t.Status !== "Done").length;
+  const pct   = total ? Math.round(done / total * 100) : 0;
+  document.getElementById("dashboard").innerHTML = [
+    ["Total tasks", total, false],
+    [`Completed`, `${done} (${pct}%)`, false],
+    ["Overdue", over, over > 0],
+    ["High priority open", high, false],
+  ].map(([l,v,d]) => `<div class="metric"><div class="metric-label">${l}</div><div class="metric-value${d?" danger":""}">${v}</div></div>`).join("");
+}
+
+function renderAssigneeFilter() {
+  const sel = document.getElementById("filter-assignee");
+  const cur = sel.value;
+  const names = [...new Set(tasks.map(t => t.Assignee).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="">All assignees</option>` + names.map(n => `<option${n===cur?" selected":""}>${n}</option>`).join("");
+}
+
+function renderBoard() {
+  const filtered = getFiltered();
+  document.getElementById("board").innerHTML = COLS.map(col => {
+    const colTasks = filtered.filter(t => t.Status === col);
+    return `<div class="column" id="col-${col.replace(/ /g,"-")}"
+      ondragover="onDragOver(event,'${col}')" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${col}')">
+      <div class="col-header">
+        <span class="col-title">${col}</span>
+        <span class="col-count">${colTasks.length}</span>
+      </div>
+      ${colTasks.map(t => {
+        const od = t["Due Date"] && t["Due Date"] < today && t.Status !== "Done";
+        const bg = avatarColor(t.Assignee);
+        return `<div class="card" draggable="true"
+          ondragstart="onDragStart(event,'${t.ID}')"
+          onclick="openModal('${t.ID}')">
+          <div class="card-top">
+            <div class="card-name">${t["Task Name"]||""}</div>
+            <span class="badge badge-${t.Priority}">${t.Priority}</span>
+          </div>
+          <div class="card-meta">
+            <div class="card-assignee">
+              <div class="avatar" style="background:${bg};color:#333">${initials(t.Assignee)}</div>
+              <span>${(t.Assignee||"").split(" ")[0]}</span>
+            </div>
+            <div class="card-due${od?" overdue":""}">${t["Due Date"]||"—"}</div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }).join("");
+}
+
+// ── Modal ─────────────────────────────────────
+function openModal(id) {
+  editId = id || null;
+  const del = document.getElementById("btn-delete");
+  if (id) {
+    const t = tasks.find(x => x.ID === id);
+    document.getElementById("modal-title").textContent = "Edit task";
+    document.getElementById("f-name").value = t["Task Name"] || "";
+    document.getElementById("f-assignee").value = t.Assignee || "";
+    document.getElementById("f-due").value = t["Due Date"] || "";
+    document.getElementById("f-priority").value = t.Priority || "Medium";
+    document.getElementById("f-status").value = t.Status || "To Do";
+    document.getElementById("f-notes").value = t.Notes || "";
+    del.style.visibility = "visible";
+  } else {
+    document.getElementById("modal-title").textContent = "New task";
+    ["f-name","f-assignee","f-due","f-notes"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("f-priority").value = "Medium";
+    document.getElementById("f-status").value = "To Do";
+    del.style.visibility = "hidden";
+  }
+  document.getElementById("modal-bg").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal-bg").classList.remove("open");
+  editId = null;
+}
+
+async function saveTask() {
+  const name = document.getElementById("f-name").value.trim();
+  if (!name) return alert("Task name is required.");
+  const task = {
+    "ID": editId || "",
+    "Task Name": name,
+    "Assignee": document.getElementById("f-assignee").value.trim() || "Unassigned",
+    "Due Date": document.getElementById("f-due").value,
+    "Priority": document.getElementById("f-priority").value,
+    "Status": document.getElementById("f-status").value,
+    "Notes": document.getElementById("f-notes").value.trim(),
+  };
+  closeModal();
+  if (editId) {
+    const i = tasks.findIndex(x => x.ID === editId);
+    tasks[i] = task;
+    renderAll();
+    await api("POST", { action: "update", task });
+  } else {
+    await api("POST", { action: "add", task });
+    await loadTasks();
+  }
+}
+
+async function deleteTask() {
+  if (!editId || !confirm("Delete this task?")) return;
+  const id = editId;
+  closeModal();
+  tasks = tasks.filter(t => t.ID !== id);
+  renderAll();
+  await api("POST", { action: "delete", id });
+}
+
+// ── Drag & Drop ───────────────────────────────
+function onDragStart(e, id) { dragId = id; e.dataTransfer.effectAllowed = "move"; }
+function onDragOver(e, col) { e.preventDefault(); document.getElementById("col-"+col.replace(/ /g,"-")).classList.add("drag-over"); }
+function onDragLeave(e) { e.currentTarget.classList.remove("drag-over"); }
+async function onDrop(e, col) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  if (!dragId) return;
+  const t = tasks.find(x => x.ID === dragId);
+  if (t && t.Status !== col) {
+    t.Status = col;
+    renderAll();
+    await api("POST", { action: "update", task: t });
+  }
+  dragId = null;
+}
+
+// ── Filters ───────────────────────────────────
+document.getElementById("filter-assignee").onchange = renderBoard;
+document.getElementById("filter-priority").onchange = renderBoard;
+document.getElementById("filter-search").oninput = renderBoard;
+document.getElementById("modal-bg").onclick = e => { if (e.target === e.currentTarget) closeModal(); };
+
+// ── Init ──────────────────────────────────────
+window.onload = () => {
+  if (SCRIPT_URL) {
+    document.getElementById("script-url-input").value = SCRIPT_URL;
+    document.getElementById("config-banner").style.display = "none";
+    loadTasks();
+  } else {
+    document.getElementById("config-banner").style.display = "flex";
+    renderDashboard();
+  }
+};
+</script>
+</body>
+</html>
