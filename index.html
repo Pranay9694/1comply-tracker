@@ -376,27 +376,46 @@ function logChange(id,oldT,newT){
 function toggleConfig(){const b=document.getElementById("config-banner");b.style.display=b.style.display==="none"?"flex":"none"}
 function saveScriptUrl(){const v=document.getElementById("script-url-input").value.trim();if(!v)return alert("Please paste a valid URL.");SCRIPT_URL=v;localStorage.setItem("1comply_script_url",v);document.getElementById("config-banner").style.display="none";loadTasks()}
 
-// ── API ──
+// ── JSONP GET (bypasses CORS for Google Apps Script) ──
+function jsonpGet(url){
+  return new Promise((resolve,reject)=>{
+    const cb="cb_"+Date.now();
+    const script=document.createElement("script");
+    const timer=setTimeout(()=>{cleanup();reject(new Error("JSONP timeout"))},10000);
+    function cleanup(){delete window[cb];document.head.removeChild(script);clearTimeout(timer)}
+    window[cb]=data=>{cleanup();resolve(data)};
+    script.src=`${url}?callback=${cb}`;
+    script.onerror=()=>{cleanup();reject(new Error("Script load failed"))};
+    document.head.appendChild(script);
+  });
+}
+
 async function api(method,body){
   if(!SCRIPT_URL)return null;
   const opts={method,headers:{"Content-Type":"text/plain"}};
   if(body)opts.body=JSON.stringify(body);
-  return (await fetch(SCRIPT_URL,opts)).json();
+  return(await fetch(SCRIPT_URL,opts)).json();
 }
 
 async function loadTasks(){
   document.getElementById("board").innerHTML=`<div class="loading-state"><div class="spinner"></div><span>Loading tasks…</span></div>`;
   try{
-    const data=await api("GET");
+    const data=await jsonpGet(SCRIPT_URL);
     tasks=(data||[]).map(t=>({
       ...t,
       ID:String(t.ID),
       Tags:t.Tags||"",
-      "Due Date":t["Due Date"]?String(t["Due Date"]).split("T")[0].split(" ")[0]:"",
+      "Due Date":t["Due Date"]?normaliseDate(String(t["Due Date"])):"",
     }));
     renderAll();checkOverdue();
   }catch(e){
-    document.getElementById("board").innerHTML=`<div class="loading-state" style="color:#f87171">Could not connect. Check your Script URL.</div>`;
+    document.getElementById("board").innerHTML=`
+      <div class="loading-state" style="color:#f87171">
+        <div>❌ Connection failed</div>
+        <div style="font-size:12px;color:var(--muted);max-width:420px;text-align:center;line-height:1.6;margin-top:4px">${e.message}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:8px">Open browser Console (F12) for full details</div>
+      </div>`;
+    console.error("1-Comply Tracker — load error:",e);
   }
 }
 
